@@ -3,15 +3,12 @@ import pandas as pd
 import numpy as np
 import random
 
-# ==========================================
 # CONFIGURACIÓN DE LA PÁGINA
-# ==========================================
+
 st.set_page_config(page_title="Simulador Vacunatorio TP5", layout="wide")
 st.title("💉 Simulador de Vacunatorio - UTN FRC")
 
-# ==========================================
 # MÓDULO 1: PARÁMETROS DEL USUARIO (Sidebar)
-# ==========================================
 st.sidebar.header("⚙️ Parámetros Discretos")
 
 # Parámetros de Llegadas
@@ -42,9 +39,7 @@ paso_h = st.sidebar.number_input("Paso de integración (h)", min_value=0.0001, m
 
 r_inicial = st.sidebar.number_input("Condición inicial R(0)", min_value=0.0, max_value=1.0, value=0.076, step=0.001, format="%.3f")
 
-# ==========================================
 # MÓDULO 2: RUNGE-KUTTA 4° ORDEN
-# ==========================================
 @st.cache_data # Usamos caché para que no recalcule RK si no cambiamos el "h" o "R(0)"
 def calcular_runge_kutta(h, r0):
     filas_rk = []
@@ -91,11 +86,9 @@ def calcular_runge_kutta(h, r0):
 # Ejecutamos el cálculo continuo automáticamente
 tiempo_x_segundos, tabla_rk = calcular_runge_kutta(paso_h, r_inicial)
 
-# ==========================================
 # PANTALLA PRINCIPAL
-# ==========================================
 st.subheader("🧮 1. Resultados del Modelo Continuo")
-st.info(f"**El tiempo de vencimiento de las vacunas de gripe (X) es:** {round(tiempo_x_segundos, 2)} **segundos** ({round(tiempo_x_segundos/60, 2)} minutos).")
+st.info(f"**El tiempo de vencimiento de las vacunas de gripe (X) es:** {round(tiempo_x_segundos, 4)} **segundos** ({round(tiempo_x_segundos/60, 4)} minutos).")
 
 with st.expander("📄 Ver Tabla Completa de Runge-Kutta"):
     st.dataframe(tabla_rk, use_container_width=True)
@@ -136,6 +129,8 @@ if st.button("▶️ Iniciar Simulación", type="primary"):
         caja_gripe_abierta = False
         dosis_gripe = 0
         turno_covid = True
+        pacientes_siendo_vacunados = 0  # <--- NUEVA VARIABLE PARA RECORDAR EL LOTE ACTUAL
+
         
         # --- VARIABLES ESTADÍSTICAS ---
         tot_vacunados_covid = 0
@@ -170,19 +165,19 @@ if st.button("▶️ Iniciar Simulación", type="primary"):
                 "Evento": "Inicialización",
                 
                 "RND Lleg COVID": round(rnd_lleg_cov, 4),
-                "Tpo Lleg COVID": round(t_lleg_cov / 60.0, 2),
-                "Próx Lleg COVID": round(prox_llegada_covid / 60.0, 2),
+                "Tpo Lleg COVID": round(t_lleg_cov / 60.0, 4),
+                "Próx Lleg COVID": round(prox_llegada_covid / 60.0, 4),
                 "RND Grupo COVID": "-",
                 
                 "RND Lleg Gripe": round(rnd_lleg_gri, 4),
-                "Tpo Lleg Gripe": round(t_lleg_gri / 60.0, 2),
-                "Próx Lleg Gripe": round(prox_llegada_gripe / 60.0, 2),
+                "Tpo Lleg Gripe": round(t_lleg_gri / 60.0, 4),
+                "Próx Lleg Gripe": round(prox_llegada_gripe / 60.0, 4),
                 "RND Grupo Gripe": "-",
 
                 "Llegaron": "-", 
                 "Próx Fin Vacunación": "-", 
                 "Próx Venc Gripe": "-",
-                "Próx Inicio Limp": round(prox_inicio_limpieza / 60.0, 2),
+                "Próx Inicio Limp": round(prox_inicio_limpieza / 60.0, 4),
                 "Próx Fin Limp": "-",
                 "Cola COVID": cola_covid, 
                 "Cola Gripe": cola_gripe,
@@ -245,8 +240,15 @@ if st.button("▶️ Iniciar Simulación", type="primary"):
                 prox_llegada_gripe = reloj + tpo_lleg_gri_actual
 
             elif evento_actual == "Fin Vacunacion":
+                # Sumamos a las estadísticas recién cuando TERMINA la atención
+                if estado_enfermero == "Vacunando COVID":
+                    tot_vacunados_covid += pacientes_siendo_vacunados
+                elif estado_enfermero == "Vacunando Gripe":
+                    tot_vacunados_gripe += pacientes_siendo_vacunados
+                
                 estado_enfermero = "Libre"
                 prox_fin_vacunacion = float('inf')
+                pacientes_siendo_vacunados = 0 # Reseteamos la memoria
 
             elif evento_actual == "Vencimiento Gripe":
                 tot_dosis_vencidas += dosis_gripe
@@ -266,45 +268,45 @@ if st.button("▶️ Iniciar Simulación", type="primary"):
                 estado_enfermero = "Libre"
                 prox_fin_limpieza = float('inf')
 
-            # --- C. Lógica del Enfermero ---
+            # C. Lógica del Enfermero
             if estado_enfermero == "Libre":
-                if turno_covid:
-                    if cola_covid >= 5: # Restricción estricta de la caja de COVID
+                if turno_covid or cola_gripe == 0:
+                    if cola_covid >= 5:
                         cajas_covid_abiertas += 1
-                        tot_vacunados_covid += 5
+                        # tot_vacunados_covid += 5  <--- ¡BORRAR O COMENTAR ESTO!
+                        pacientes_siendo_vacunados = 5 # <--- AGREGAR ESTO
+                        
                         estado_enfermero = "Vacunando COVID"
                         cola_covid -= 5
-                        prox_fin_vacunacion = reloj + (tiempo_vacunacion_seg * 5)
-                        turno_covid = False # Alterna turno
+                        prox_fin_vacunacion = reloj + (tiempo_vacunacion_seg * 5) / 60.0
+                        turno_covid = False
                     elif cola_gripe > 0:
-                        turno_covid = False # Cede el turno a Gripe si no junta 5
+                        turno_covid = False
 
-                # Evaluamos Gripe si es su turno (o si COVID cedió el turno)
                 if not turno_covid and estado_enfermero == "Libre":
                     if cola_gripe > 0:
                         if not caja_gripe_abierta:
                             cajas_gripe_abiertas += 1
                             caja_gripe_abierta = True
                             dosis_gripe = 10
-                            # Vencimiento regido por tiempo continuo de RK
-                            prox_vencimiento_gripe = reloj + tiempo_x_segundos
+                            prox_vencimiento_gripe = reloj + (tiempo_x_segundos / 60.0)
                         
                         a_vacunar = min(cola_gripe, dosis_gripe)
-                        tot_vacunados_gripe += a_vacunar
+                        # tot_vacunados_gripe += a_vacunar  <--- ¡BORRAR O COMENTAR ESTO!
+                        pacientes_siendo_vacunados = a_vacunar # <--- AGREGAR ESTO
                         
                         estado_enfermero = "Vacunando Gripe"
                         cola_gripe -= a_vacunar
                         dosis_gripe -= a_vacunar
-                        prox_fin_vacunacion = reloj + (tiempo_vacunacion_seg * a_vacunar)
+                        prox_fin_vacunacion = reloj + (tiempo_vacunacion_seg * a_vacunar) / 60.0
 
-                        # Si se agota la caja en el acto, anulamos el evento de vencimiento
                         if dosis_gripe == 0:
                             caja_gripe_abierta = False
                             prox_vencimiento_gripe = float('inf')
                         
-                        turno_covid = True # Alterna turno
+                        turno_covid = True
                     elif cola_covid >= 5:
-                        turno_covid = True # Si no hay Gripe, le devuelve a COVID
+                        turno_covid = True
             
             # --- D. Filtro Visual de Filas ---
             if (fila_j <= iteracion < (fila_j + filas_i)) or (iteracion == iteraciones_max):
