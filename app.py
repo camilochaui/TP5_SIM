@@ -24,7 +24,7 @@ st.sidebar.subheader("🧹 Interrupción Inventada")
 frecuencia_limpieza = st.sidebar.number_input("Frecuencia Limpieza (min)", value=60.0)
 duracion_limpieza = st.sidebar.number_input("Duración Limpieza (min)", value=5.0)
 
-# Parámetros de Visualización (Obligatorios del TP)
+# Parámetros de Visualización 
 st.sidebar.markdown("---")
 st.sidebar.subheader("👀 Visualización")
 iteraciones_max = st.sidebar.number_input("Iteraciones Máximas", value=100000)
@@ -129,7 +129,7 @@ if st.button("▶️ Iniciar Simulación", type="primary"):
         caja_gripe_abierta = False
         dosis_gripe = 0
         turno_covid = True
-        pacientes_siendo_vacunados = 0  # <--- NUEVA VARIABLE PARA RECORDAR EL LOTE ACTUAL
+        pacientes_siendo_vacunados = 0  #  VARIABLE PARA RECORDAR EL LOTE ACTUAL
 
         
         # --- VARIABLES ESTADÍSTICAS ---
@@ -273,8 +273,7 @@ if st.button("▶️ Iniciar Simulación", type="primary"):
                 if turno_covid or cola_gripe == 0:
                     if cola_covid >= 5:
                         cajas_covid_abiertas += 1
-                        # tot_vacunados_covid += 5  <--- ¡BORRAR O COMENTAR ESTO!
-                        pacientes_siendo_vacunados = 5 # <--- AGREGAR ESTO
+                        pacientes_siendo_vacunados = 5
                         
                         estado_enfermero = "Vacunando COVID"
                         cola_covid -= 5
@@ -292,8 +291,7 @@ if st.button("▶️ Iniciar Simulación", type="primary"):
                             prox_vencimiento_gripe = reloj + (tiempo_x_segundos / 60.0)
                         
                         a_vacunar = min(cola_gripe, dosis_gripe)
-                        # tot_vacunados_gripe += a_vacunar  <--- ¡BORRAR O COMENTAR ESTO!
-                        pacientes_siendo_vacunados = a_vacunar # <--- AGREGAR ESTO
+                        pacientes_siendo_vacunados = a_vacunar
                         
                         estado_enfermero = "Vacunando Gripe"
                         cola_gripe -= a_vacunar
@@ -351,7 +349,7 @@ if st.button("▶️ Iniciar Simulación", type="primary"):
         st.markdown("---")
         st.subheader("📊 3. Estadísticas")
         
-        # Fórmulas de la cátedra para promedios y porcentajes
+        # Fórmulas para promedios y porcentajes
         porcentaje_ocupacion = (ac_tiempo_ocupado / reloj) * 100 if reloj > 0 else 0
         promedio_cola_covid = ac_area_cola_covid / reloj if reloj > 0 else 0
         promedio_cola_gripe = ac_area_cola_gripe / reloj if reloj > 0 else 0
